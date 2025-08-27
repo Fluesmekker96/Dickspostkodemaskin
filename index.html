@@ -197,6 +197,25 @@
           showMap(a.getAttribute('data-pc'));
         });
       });
+
+      // First-search hint popup
+      if(!window.__firstSearchShown && rows.length>0){
+        window.__firstSearchShown=true;
+        const firstLink=wrap.querySelector('.map-link');
+        if(firstLink){
+          const pc=firstLink.getAttribute('data-pc');
+          const hint=document.createElement('div');
+          hint.className='hint-pop';
+          hint.innerHTML='<div><b>Vil du se hvordan det ser ut på denne postkoden?</b><br>Trykk på «Vis kart» ved siden av første rad ('+pc+').</div>'+
+                        '<div class="hint-actions">'+
+                        '<button class="btn" id="hintGo">Vis meg</button>'+
+                        '<button class="btn ghost" id="hintClose">Lukk</button>'+
+                        '</div>';
+          wrap.parentElement.insertBefore(hint, wrap);
+          document.getElementById('hintGo').addEventListener('click', function(){ firstLink.click(); hint.remove(); });
+          document.getElementById('hintClose').addEventListener('click', function(){ hint.remove(); });
+        }
+      }
     }
  
     function showMap(postcode){
