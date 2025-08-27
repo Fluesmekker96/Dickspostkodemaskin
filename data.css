@@ -1,0 +1,77 @@
+:root{
+  --lavender-blush:#f9eaeb; --dark-burgundy:#300605; --orange:#e94d2c; --tomato:#f56344;
+  --bg:var(--lavender-blush); --surface:#ffffff; --text:var(--dark-burgundy); --muted:#6c645b;
+  --brand:var(--orange); --radius:8px; --gap:8px; --shadow:0 6px 24px rgba(0,0,0,.12);
+  --lh:1.38;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:var(--lavender-blush); --surface:#ffffff; --text:var(--dark-burgundy); --muted:#6c645b; }
+}
+@media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } }
+
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--text); line-height:var(--lh); -webkit-font-smoothing:antialiased; font-family:Radikal, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;}
+.wrap{max-width:1100px; margin:0 auto; padding:12px;}
+*,*::before,*::after{box-sizing:border-box}
+
+header .brand{color:var(--brand); font-weight:700; font-family:"Recoleta", Radikal, Georgia, serif; font-size:clamp(28px,5.4vw,56px); line-height:1.05}
+header .brand .brand-dot{display:inline-block; width:.5em; height:.5em; background:var(--tomato); border-radius:50%; margin-left:.25em}
+
+h1,h2,h3{font-family:"Recoleta", Radikal, Georgia, serif}
+h1{font-size:clamp(28px,5.2vw,48px); margin:8px 0 6px; color:var(--brand); line-height:1.15}
+.mini,.hint{color:var(--muted); font-size:12px}
+label{display:block; font-size:12px; color:var(--muted); margin-bottom:4px}
+
+.grid{display:grid; gap:var(--gap); grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--surface); border-radius:var(--radius); padding:10px; box-shadow:var(--shadow); overflow:hidden}
+.badges{display:flex; gap:8px; flex-wrap:wrap}
+.badges .badge{background:rgba(0,0,0,.06); border-radius:999px; padding:4px 8px}
+
+.actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.actions .row.right{margin-left:auto; display:flex; gap:8px; align-items:center}
+
+input,select,textarea{width:100%; color:var(--text); background:#fff; border:1px solid #e2c9c7; border-radius:var(--radius); padding:8px 10px}
+textarea#out{min-height:160px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+.btn{appearance:none; border:0; background:var(--brand); color:#fff; font-weight:700; border-radius:var(--radius); padding:8px 12px; box-shadow:var(--shadow); cursor:pointer}
+.btn:hover{filter:brightness(0.98)}
+.btn.ghost{background:transparent; color:var(--text); border:1px solid var(--muted)}
+.btn:focus-visible, select:focus-visible, input:focus-visible{outline:2px solid var(--brand); outline-offset:2px}
+.btn[disabled]{opacity:.5; cursor:not-allowed}
+
+#summary.badges{margin-top:6px}
+
+#tableWrap{overflow:auto; max-height:60vh; border-radius:var(--radius)}
+#tableWrap table{width:100%; border-collapse:separate; border-spacing:0}
+#tableWrap thead th{position:sticky; top:0; background:var(--surface); z-index:1}
+#tableWrap th,#tableWrap td{padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.06)}
+#tableWrap tbody tr:nth-child(odd){background:rgba(0,0,0,.03)}
+#tableWrap td:nth-last-child(-n+3), #tableWrap th:nth-last-child(-n+3){text-align:right}
+
+/* Overlay */
+#overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:1000}
+#overlay[aria-hidden="false"]{display:flex}
+#overlay .modal{position:relative; background:var(--surface); border-radius:var(--radius); max-width:90vw; max-height:90vh; overflow:auto; padding:8px; box-shadow:var(--shadow)}
+#overlay img{display:block; max-width:88vw; max-height:80vh}
+#overlay .close{position:absolute; top:8px; right:8px}
+
+/* Mobile adjustments */
+@media (max-width: 640px){
+  .wrap{ padding:10px; }
+  .actions{ flex-direction:column; align-items:stretch; gap:6px; }
+  .actions .row.right{ margin-left:0; width:100%; justify-content:center; }
+  .actions .row.right select{ min-width:0; width:100%; }
+  .btn{ width:100%; padding:12px; }
+  input,select,textarea{ padding:12px; min-height:44px; }
+  header .brand{ font-size:clamp(26px,8vw,40px); }
+  h1{ font-size:clamp(22px,6vw,30px); }
+  #tableWrap{ max-height:50vh; -webkit-overflow-scrolling:touch; }
+  #tableWrap table{ font-size:13px; }
+  header, header .brand, header .mini{ text-align:center; }
+  .badges{ justify-content:center; }
+  .grid{ grid-template-columns:1fr; }
+}
+@media (max-width: 360px){
+  header .brand{ font-size:clamp(22px,9vw,34px); }
+  .grid{ grid-template-columns:1fr; }
+}

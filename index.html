@@ -1,0 +1,243 @@
+
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dick's postkodesegmenteringsmaskin — (offline)</title>
+  <link rel="stylesheet" href="data.css" />
+  <style>
+    #overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000;}
+    #overlay .modal{position:relative;background:#fff;border-radius:8px;max-width:90vw;max-height:90vh;overflow:auto;padding:8px;}
+    #overlay img{display:block;max-width:88vw;max-height:80vh;}
+    #overlay .close{position:absolute;top:8px;right:8px;}
+  </style>
+ 
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">Dick's postkodesegmenteringsmaskin <span class="brand-dot" aria-hidden="true"></span></div>
+      <div class="mini">Lite visste jeg at alle postkodene som kom og gikk var selve Norge.</div>
+    </header>
+
+    
+    <div class="sub">Bygg en <b>kopi‑lim</b>-klar liste for Meta Ads. Velg område og inntektssegment. Fungerer <b>helt offline</b>.</div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="grid">
+        <div>
+          <label>Sted / område (delvis treff)</label>
+          <input id="place" placeholder="OSLO, SANDVIKA, TRONDHEIM" enterkeyhint="done">
+        </div>
+        <div>
+          <label>Postnummer‑prefiks (valgfritt)</label>
+          <input id="prefix" placeholder="01 (Oslo), 50 (Bergen), 70 (Trondheim)" inputmode="numeric" enterkeyhint="next">
+        </div>
+        <div>
+          <label>Inntektssegment</label>
+          <select id="segment">
+            <option value="all" selected>Alle</option>
+            <option value="high">Høy</option>
+            <option value="medium">Middels</option>
+            <option value="low">Lav</option>
+          </select>
+        </div>
+        <div>
+          <label>Inntektsmetode</label>
+          <select id="metric">
+            <option value="median" selected>Median inntekt</option>
+            <option value="average">Snittinntekt</option>
+          </select>
+        </div>
+        <div>
+          <label>Min. skatteytere pr. postnummer</label>
+          <input id="minN" type="number" value="100" min="0" step="50" inputmode="numeric" enterkeyhint="next">
+        </div>
+        <div>
+          <label>Maks. postnumre</label>
+          <input id="limit" type="number" value="50" min="1" step="5" inputmode="numeric" enterkeyhint="done">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="build">Bygg liste</button>
+        <button class="btn ghost" id="copy">Kopier</button>
+        <button class="btn ghost" id="download">Last ned CSV</button>
+        <div class="row right">
+          <label class="mini" style="margin-right:6px">Format</label>
+          <select id="format" style="min-width:220px">
+            <option value="meta_line" selected>Meta bulk (én per linje): "NO 0150"</option>
+            <option value="plain_line">Ren (én per linje): "0150"</option>
+            <option value="csv">CSV per linje: "NO,0150"</option>
+            <option value="comma_list">Kommaseparert: NO 0150, NO 0151, …</option>
+          </select>
+          <input id="cc" value="NO" style="max-width:90px" title="Landskode">
+        </div>
+      </div>
+
+      <div id="summary" class="badges"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <label>Kopi‑lim‑felt</label>
+        <textarea id="out" readonly placeholder="Listen kommer her …"></textarea>
+        <div class="hint">Meta Ads → Locations → Bulk add → Postal codes → Lim inn.</div>
+      </div>
+      <div class="card">
+        <label>Forhåndsvisning</label>
+        <div id="tableWrap" class="hint">Ingen resultater ennå.</div>
+      </div>
+    </div>
+
+    <div id="overlay" aria-hidden="true">
+      <div class="modal">
+        <button id="overlayClose" class="btn ghost close">Lukk</button>
+        <img id="overlayImg" alt="Postnummerkart">
+      </div>
+    </div>
+
+    <footer>
+      <div>Data: Skatteår 2021. Segmentering bruker lokale persentiler basert på filtre.</div>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script>
+
+    function normalize(s){ return (s||"").toString().trim().toUpperCase(); }
+    function quantile(arr, q){
+      if(!arr.length) return null;
+      const sorted=[...arr].sort((a,b)=>a-b);
+      const pos=(sorted.length-1)*q;
+      const base=Math.floor(pos);
+      const rest=pos-base;
+      if(sorted[base+1]!==undefined) return sorted[base]+rest*(sorted[base+1]-sorted[base]);
+      return sorted[base];
+    }
+
+    function compute(){
+      const place=normalize(document.getElementById('place').value);
+      const prefix=document.getElementById('prefix').value.trim();
+      const segment=document.getElementById('segment').value;
+      const metric=document.getElementById('metric').value;
+      const minN=parseInt(document.getElementById('minN').value||"0",10);
+      const limit=parseInt(document.getElementById('limit').value||"50",10);
+
+      let rows=RAW.filter(r=>true);
+      if(place) rows=rows.filter(r=>normalize(r.place).includes(place));
+      if(prefix) rows=rows.filter(r=>(r.postcode||'').startsWith(prefix));
+      rows=rows.filter(r=>(parseFloat(r.n_taxpayers)||0)>=minN);
+
+      const incOf=(r)=>{
+        const med=parseFloat(r.median_income||0);
+        const avg=parseFloat(r.avg_income||0);
+        if(metric==='average') return (isNaN(avg)||avg===0)?med:avg;
+        return (isNaN(med)||med===0)?avg:med;
+      };
+
+      const incomes=rows.map(incOf).filter(x=>!isNaN(x));
+      const qLow=quantile(incomes,0.33);
+      const qHigh=quantile(incomes,0.67);
+
+      rows=rows.map(r=>{
+        const inc=incOf(r);
+        let bucket='medium';
+        if(qLow!==null && qHigh!==null){
+          if(inc<qLow) bucket='low';
+          else if(inc>qHigh) bucket='high';
+          else bucket='medium';
+        }
+        const n=Math.max(1,parseFloat(r.n_taxpayers)||1);
+        const score=(inc||0)*Math.log(n+1);
+        return {...r, income_bucket:bucket, income_used:inc, rank_score:score};
+      });
+
+      if(segment!=='all') rows=rows.filter(r=>r.income_bucket===segment);
+      rows.sort((a,b)=>b.rank_score-a.rank_score);
+      return rows.slice(0,limit);
+    }
+
+    function render(){
+      const rows=compute();
+      const cc=(document.getElementById('cc').value||'NO').toUpperCase();
+      const fmt=document.getElementById('format').value;
+
+      const totalN=rows.reduce((a,r)=>a+(parseFloat(r.n_taxpayers)||0),0);
+      document.getElementById('summary').innerHTML = [
+        '<span class="badge">Resultater: '+rows.length+'</span>',
+        '<span class="badge">Sum skatteytere: '+ totalN.toLocaleString('no-NO') +'</span>'
+      ].join("");
+
+      // Output text
+      let text="";
+      if(fmt==='meta_line') text=rows.map(function(r){ return cc+' '+r.postcode; }).join('\n');
+      else if(fmt==='plain_line') text=rows.map(function(r){ return r.postcode; }).join('\n');
+      else if(fmt==='csv') text=rows.map(function(r){ return cc+','+r.postcode; }).join('\n');
+      else if(fmt==='comma_list') text=rows.map(function(r){ return cc+' '+r.postcode; }).join(', ');
+      document.getElementById('out').value=text;
+
+      // Table
+      const wrap=document.getElementById('tableWrap');
+      if(!rows.length){ wrap.innerHTML="Ingen treff. Prøv å utvide filtrene."; return; }
+      const headers=["#","Postnr","Sted","Segment","Median","Snitt","Skatteytere","Kart"];
+      let html="<table><thead><tr>"+headers.map(function(h){return '<th>'+h+'</th>';}).join("")+"</tr></thead><tbody>";
+      for (let i=0;i<rows.length;i++){ const r=rows[i];
+        const mapLink = '<a href="#" class="map-link" data-pc="'+r.postcode+'">Vis kart</a>';
+        const cells=[ i+1, r.postcode, r.place, r.income_bucket, (r.median_income||''), (r.avg_income||''), (r.n_taxpayers||''), mapLink ]
+                     .map(function(v){ return '<td>'+ (v===null||v===undefined?'':v) +'</td>'; }).join("");
+        html += "<tr>"+cells+"</tr>";
+      }
+      html+="</tbody></table>";
+      wrap.innerHTML=html;
+      wrap.querySelectorAll('.map-link').forEach(function(a){
+        a.addEventListener('click', function(ev){
+          ev.preventDefault();
+          showMap(a.getAttribute('data-pc'));
+        });
+      });
+    }
+ 
+    function showMap(postcode){
+      const img=document.getElementById('overlayImg');
+      img.src='https://www.erikbolstad.no/postnummer-koordinatar/kart/'+postcode+'.jpeg';
+      img.alt='Postnummer '+postcode+' kart';
+      const ov=document.getElementById('overlay');
+      ov.style.display='flex';
+      ov.setAttribute('aria-hidden','false');
+    }
+    function hideMap(){
+      const ov=document.getElementById('overlay');
+      const img=document.getElementById('overlayImg');
+      img.src='';
+      ov.style.display='none';
+      ov.setAttribute('aria-hidden','true');
+    }
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') hideMap(); });
+    document.getElementById('overlay').addEventListener('click', function(e){ if(e.target && e.target.id==='overlay') hideMap(); });
+    document.getElementById('overlayClose').addEventListener('click', function(){ hideMap(); });
+
+    document.getElementById('build').addEventListener('click', render);
+    document.getElementById('copy').addEventListener('click', async function(){
+      const ta=document.getElementById('out');
+      try{ await navigator.clipboard.writeText(ta.value); }
+      catch(e){ ta.select(); document.execCommand('copy'); }
+    });
+    document.getElementById('download').addEventListener('click', function(){
+      const rows=compute();
+      if(!rows.length){ alert("Bygg en liste først."); return; }
+      const headers=["postcode","place","income_bucket","median_income","avg_income","n_taxpayers"];
+      const csv=[headers.join(",")].concat(rows.map(function(r){ return headers.map(function(h){ return (r[h]||''); }).join(","); })).join("\n");
+      const blob=new Blob([csv],{type:"text/csv"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download="postkoder_meta.csv"; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // initial
+    render();
+  </script>
+</body>
+</html>
